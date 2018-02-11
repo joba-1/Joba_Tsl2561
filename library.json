@@ -1,0 +1,10 @@
+{
+  "name": "Joba_Tsl2561",
+  "keywords": "twowire, i2c, bus, sensor, luminosity, illuminance, lux",
+  "description": "Arduino Library for ams (taos) luminance chip Tsl2561",
+  "repository":
+  {
+    "type": "git",
+    "url": "https://github.com/joba-1/Joba_Tsl2561.git"
+  }
+}
