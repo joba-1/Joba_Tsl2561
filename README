@@ -17,5 +17,4 @@ For usage, see the examples folder.
 The library has 3 classes:
 Tsl2561     All register access as described in the datasheet, except for interrupts
 Tsl2561Util Convenience functions like lux calculation or automatic gain
-Tsl2561Int  TODO, Interupt related stuff (not needed if int pin unconnected)
-
+Tsl2561Int  TODO, Interrupt related stuff (not needed if int pin unconnected)
