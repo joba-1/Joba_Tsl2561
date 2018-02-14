@@ -1,5 +1,5 @@
 /*
-Simple tests for Tsl2561Util class.
+Simple tests for Tsl2561Util namespace.
 
 Copyright: Joachim Banzhaf, 2018
 

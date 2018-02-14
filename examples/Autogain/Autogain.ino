@@ -1,5 +1,5 @@
 /*
-Autogain tests for Tsl2561Util class.
+Autogain tests for Tsl2561Util namespace.
 
 Copyright: Joachim Banzhaf, 2018
 
