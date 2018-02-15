@@ -28,6 +28,7 @@ class Tsl2561 {
 public:
 
   typedef enum {
+    ADDR_NONE  = 0b0000000,
     ADDR_GND   = 0b0101001,
     ADDR_FLOAT = 0b0111001,
     ADDR_VDD   = 0b1001001
@@ -67,7 +68,7 @@ public:
 
   enum {
     GAIN_OFF,
-    GAIN_ON     = 0b00010000
+    GAIN_ON = 0b00010000
   };
 
   typedef enum {
@@ -86,14 +87,17 @@ public:
   };
 
   typedef enum {
-    ERR_OK = 0,
+    ERR_OK      = 0,
     ERR_GENERAL = 1,
-    ERR_GONE = 2,
-    ERR_RW = 3,
-    ERR_BUSY = 4
+    ERR_GONE    = 2,
+    ERR_RW      = 3,
+    ERR_BUSY    = 4
   } status_t;
 
-  Tsl2561( address_t addr, TwoWire &wire );
+  Tsl2561( TwoWire &wire );
+
+  bool begin( address_t addr );
+  bool begin();
 
   bool available();
   status_t status() const;

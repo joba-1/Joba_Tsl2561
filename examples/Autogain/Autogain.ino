@@ -21,26 +21,17 @@ This file is part of the Joba_Tsl2561 Library.
 
 #include <Tsl2561Util.h>
 
-Tsl2561::address_t addr[] = { Tsl2561::ADDR_GND, Tsl2561::ADDR_FLOAT, Tsl2561::ADDR_VDD };
-Tsl2561 *tsl = 0;
+Tsl2561 Tsl(Wire);
 uint8_t id;
 
 void setup() {
   Serial.begin(115200);
   Wire.begin();
-  for( uint8_t i = 0; i < sizeof(addr)/sizeof(addr[0]); i++ ) {
-    tsl = new Tsl2561(addr[i], Wire);
-    if( tsl->available() ) {
-      break;
-    }
-    else {
-      delete tsl;
-      tsl = 0;
-    }
-  }
+  while( !Tsl.begin() )
+    ; // wait until chip detected or wdt reset
   Serial.println("\nStarting Tsl2561Util autogain loop");
-  tsl->on(); // this reboots if no Tsl2561 available
-  tsl->id(id);
+  Tsl.on();
+  Tsl.id(id);
 }
 
 void loop() {
@@ -49,15 +40,26 @@ void loop() {
   bool gain = false;
   Tsl2561::exposure_t exposure = Tsl2561::EXP_OFF;
 
-  if( Tsl2561Util::autoGain(*tsl, gain, exposure, scaledFull, scaledIr)
-   && Tsl2561Util::normalizedLuminosity(gain, exposure, full = scaledFull, ir = scaledIr)
-   && Tsl2561Util::milliLux(full, ir, milliLux, Tsl2561::packageCS(id)) ) {
-    Serial.printf("Tsl2561 addr: 0x%02x, id: 0x%02x, sfull: %5u, sir: %5u, full: %5u, ir: %5u, gain: %d, exp: %d, lux: %5u.%03u\n", tsl->address(), id, scaledFull, scaledIr, full, ir, gain, exposure, milliLux/1000, milliLux%1000);
+  if( Tsl2561Util::autoGain(Tsl, gain, exposure, scaledFull, scaledIr) ) {
+    if( Tsl2561Util::normalizedLuminosity(gain, exposure, full = scaledFull, ir = scaledIr) ) {
+      if( Tsl2561Util::milliLux(full, ir, milliLux, Tsl2561::packageCS(id)) ) {
+        Serial.printf("Tsl2561 addr: 0x%02x, id: 0x%02x, sfull: %5u, sir: %5u, full: %5u, ir: %5u, gain: %d, exp: %d, lux: %5u.%03u\n", 
+          Tsl.address(), id, scaledFull, scaledIr, full, ir, gain, exposure, milliLux/1000, milliLux%1000);
+      }
+      else {
+        Serial.printf("Tsl2561Util::milliLux(full=%u, ir=%u) error\n", full, ir);
+      }
+    }
+    else {
+      Serial.printf("Tsl2561Util::normalizedLuminosity(gain=%u, exposure=%u, sfull=%u, sir=%u, full=%u, ir=%u) error\n", 
+        gain, exposure, scaledFull, scaledIr, full, ir);
+    }
   }
   else {
-    Serial.printf("addr: 0x%02x, id: 0x%02x, full: %u, ir: %u, gain: %d, exp: %u\n", tsl->address(), id, full, ir, gain, exposure);
-    Serial.println("Tsl2561Util::autoGain() error");
+    Serial.printf("Tsl2561Util::autoGain(gain=%u, exposure=%u, sfull=%u, sir=%u) error\n", 
+      gain, exposure, scaledFull, scaledIr);
   }
 
   delay(1000);
 }
+

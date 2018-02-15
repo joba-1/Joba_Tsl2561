@@ -22,9 +22,7 @@ This file is part of the Joba_Tsl2561 Library.
 
 #include <Tsl2561.h>
 
-Tsl2561 tsl1(Tsl2561::ADDR_FLOAT, Wire);
-Tsl2561 tsl2(Tsl2561::ADDR_GND, Wire);
-Tsl2561 tsl3(Tsl2561::ADDR_VDD, Wire);
+Tsl2561 Tsl(Wire);
 
 void showError( Tsl2561 &tsl ) {
   Tsl2561::status_t status = tsl.status();
@@ -88,7 +86,7 @@ void testSensitivity( Tsl2561 &tsl, bool newGain, Tsl2561::exposure_t newExp ) {
       }
 
       if( !full ) {
-        Serial.print("No luminosity reading after 1s: ");
+        Serial.println("No luminosity reading after 1s. Too dark?");
       }
       else {
         Serial.printf("Got luminosity after %d ms. Full spectrum is %d and IR only is %d\n", millis() - start, full, ir);
@@ -130,7 +128,7 @@ bool testPackage( Tsl2561 &tsl ) {
 
 void test( Tsl2561 &tsl ) {
   bool ok = tsl.available();
-  Serial.printf("Testing Tsl2561 at address %02x: %sfound\n", tsl.address(), ok ? "" : "NOT ");
+  Serial.printf("\nTesting Tsl2561 at address %02x: %sfound\n", tsl.address(), ok ? "" : "NOT ");
   if( ok ) {
     if( testPackage(tsl) ) {
       testSensitivity(tsl, Tsl2561::GAIN_OFF, Tsl2561::EXP_402);
@@ -153,9 +151,13 @@ void setup() {
 }
 
 void loop() {
-  test(tsl1);
-  test(tsl2);
-  test(tsl3);
+  Tsl.begin(Tsl2561::ADDR_GND);
+  test(Tsl);
+  Tsl.begin(Tsl2561::ADDR_FLOAT);
+  test(Tsl);
+  Tsl.begin(Tsl2561::ADDR_VDD);
+  test(Tsl);
   Serial.println("\nNext test in 5s\n");
   delay(5000);
 }
+

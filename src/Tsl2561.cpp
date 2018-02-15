@@ -19,12 +19,30 @@ This file is part of the Joba_Tsl2561 Library.
 
 #include "Tsl2561.h"
 
-Tsl2561::Tsl2561( address_t addr, TwoWire &wire ) : _addr(addr), _wire(wire), _status(ERR_OK) {
+Tsl2561::Tsl2561( TwoWire &wire ) : _addr(ADDR_NONE), _wire(wire), _status(ERR_OK) {
 }
 
 bool Tsl2561::available() {
   _wire.beginTransmission(_addr);
   return (_status = static_cast<status_t>(_wire.endTransmission())) == ERR_OK;
+}
+
+bool Tsl2561::begin( address_t addr ) {
+  _addr = addr;
+  return available();  
+}
+
+bool Tsl2561::begin() {
+  static address_t addr[] = { ADDR_GND, ADDR_FLOAT, ADDR_VDD };
+
+  for( uint8_t i=0; i<sizeof(addr)/sizeof(addr[0]); i++ ) {
+    if( begin(addr[i]) ) {
+      return true;
+    }
+  }
+
+  _addr = ADDR_NONE;
+  return false;
 }
 
 bool Tsl2561::readByte( register_t reg, uint8_t &val ) {

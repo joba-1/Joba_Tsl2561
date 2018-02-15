@@ -72,7 +72,7 @@ void waitNext( Tsl2561::exposure_t exposure ) {
   switch( exposure ) {
     case Tsl2561::EXP_14:  delay(16);  break;
     case Tsl2561::EXP_101: delay(103); break;
-    default:               delay(404); break;
+    default:               delay(408); break;
   }
 }
 

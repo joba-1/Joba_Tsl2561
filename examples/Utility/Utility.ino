@@ -22,6 +22,7 @@ This file is part of the Joba_Tsl2561 Library.
 #include <Tsl2561Util.h>
 
 Tsl2561::address_t addr[] = { Tsl2561::ADDR_GND, Tsl2561::ADDR_FLOAT, Tsl2561::ADDR_VDD };
+Tsl2561 Tsl(Wire);
 
 void setup() {
   Serial.begin(115200);
@@ -33,8 +34,7 @@ void loop() {
   bool found = false;
 
   for( uint8_t i = 0; i < sizeof(addr)/sizeof(addr[0]); i++ ) {
-    Tsl2561 *tsl = new Tsl2561(addr[i], Wire);
-    if( tsl->available() ) {
+    if( Tsl.begin(addr[i]) ) {
       found = true;
       Serial.println();
 
@@ -49,43 +49,39 @@ void loop() {
         for( uint8_t e=0; e<3; e++ ) {
           exposure = (Tsl2561::exposure_t)e;
 
-          tsl->on();
-          tsl->setSensitivity(gain, exposure);
-          switch( exposure ) {
-            case Tsl2561::EXP_402: delay(410); break;
-            case Tsl2561::EXP_101: delay(110); break;
-            case Tsl2561::EXP_14:  delay( 20); break;
-          }
-          tsl->id(id);
-          tsl->fullLuminosity(scaledFull);
-          tsl->irLuminosity(scaledIr);
-          tsl->getSensitivity(gain, exposure);
+          Tsl.on();
 
-          full = scaledFull;
-          ir = scaledIr;
+          Tsl.setSensitivity(gain, exposure);
+          Tsl2561Util::waitNext(exposure);
+          Tsl.id(id);
+          Tsl.getSensitivity(gain, exposure);
+          Tsl.fullLuminosity(scaledFull);
+          Tsl.irLuminosity(scaledIr);
 
-          if( Tsl2561Util::normalizedLuminosity(gain, exposure, full, ir) ) {
+          Serial.printf("Tsl2561 addr: 0x%02x, id: 0x%02x, sfull: %5u, sir: %5u, gain: %d, exp: %d", addr[i], id, scaledFull, scaledIr, gain, exposure);
+
+          if( Tsl2561Util::normalizedLuminosity(gain, exposure, full = scaledFull, ir = scaledIr) ) {
             if( Tsl2561Util::milliLux(full, ir, milliLux, Tsl2561::packageCS(id)) ) {
-              Serial.printf("Tsl2561 addr: 0x%02x, id: 0x%02x, sfull: %5u, sir: %5u, full: %5u, ir: %5u, gain: %d, exp: %d, lux: %5u.%03u\n", addr[i], id, scaledFull, scaledIr, full, ir, gain, exposure, milliLux/1000, milliLux%1000);
+              Serial.printf(", full: %5u, ir: %5u, lux: %5u.%03u\n", full, ir, milliLux/1000, milliLux%1000);
             }
             else {
-              Serial.printf("addr: 0x%02x, id: 0x%02x, full: %u, ir: %u, gain: %d, exp: %u\n", tsl->address(), id, full, ir, gain, exposure);
-              Serial.println("Tsl2561Util::milliLux() error");
+              Serial.printf(", full: %5u, ir: %5u: Tsl2561Util::milliLux() error\n", full, ir);
             }
           }
           else {
-            Serial.printf("addr: 0x%02x, id: 0x%02x, full: %u, ir: %u, gain: %d, exp: %u\n", tsl->address(), id, full, ir, gain, exposure);
-            Serial.println("Tsl2561Util::normalizedLuminosity() error");
+            Serial.printf(", full: %5u, ir: %5u: Tsl2561Util::normalizedLuminosity() error\n", full, ir);
           }
 
-          tsl->off();
+          Tsl.off();
         }
       }
     }
   }
+
   if( !found ) {
     Serial.println("No Tsl2561 found. Check wiring.");
   }
 
   delay(5000);
 }
+

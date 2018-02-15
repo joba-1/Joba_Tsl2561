@@ -21,7 +21,7 @@ This file is part of the Joba_Tsl2561 Library.
 
 #include <Tsl2561.h>
 
-Tsl2561::address_t addr[] = { Tsl2561::ADDR_GND, Tsl2561::ADDR_FLOAT, Tsl2561::ADDR_VDD };
+Tsl2561 Tsl(Wire);
 
 void setup() {
   Serial.begin(115200);
@@ -30,29 +30,25 @@ void setup() {
 }
 
 void loop() {
-  bool found = false;
+  Tsl.begin();
+  if( Tsl.available() ) {
+    Tsl.on();
 
-  for( uint8_t i = 0; i < sizeof(addr)/sizeof(addr[0]); i++ ) {
-    Tsl2561 *tsl = new Tsl2561(addr[i], Wire);
-    if( tsl->available() ) {
-      found = true;
+    Tsl.setSensitivity(true, Tsl2561::EXP_14);
+    delay(16);
 
-      tsl->on();
-      tsl->setSensitivity(true, Tsl2561::EXP_14);
-      delay(14);
+    uint8_t id;
+    uint16_t full, ir;
 
-      uint8_t id;
-      uint16_t full, ir;
-      tsl->id(id);
-      tsl->fullLuminosity(full);
-      tsl->irLuminosity(ir);
-      Serial.printf("Tsl2561 at 0x%02x(id=0x%02x) luminosity is %5u (full) and %5u (ir)\n", addr[i], id, full, ir);
+    Tsl.id(id);
+    Tsl.fullLuminosity(full);
+    Tsl.irLuminosity(ir);
 
-      tsl->off();
-    }
+    Serial.printf("Tsl2561 at 0x%02x(id=0x%02x) luminosity is %5u (full) and %5u (ir)\n", Tsl.address(), id, full, ir);
+
+    Tsl.off();
   }
-
-  if( !found ) {
+  else {
     Serial.println("No Tsl2561 found. Check wiring.");
   }
 
