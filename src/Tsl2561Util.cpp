@@ -54,20 +54,22 @@ bool normalizedLuminosity( bool gain, Tsl2561::exposure_t exposure, uint32_t &fu
         return false;
     }
 
-    return full != ~0 && ir != ~0;
+    return full != ~0U && ir != ~0U;
   }
 
   return false;
 }
 
+// Return upper saturation limit upto which chip returns accurate data
 uint16_t getLimit( Tsl2561::exposure_t exposure ) {
   switch( exposure ) {
     case Tsl2561::EXP_14:  return 5047/4*3;
     case Tsl2561::EXP_101: return 37177/4*3;
+    default: return 65535/4*3;
   }
-  return 65535/4*3;
 }
 
+// Wait for one measurement interval plus some empirically tested extra millis
 void waitNext( Tsl2561::exposure_t exposure ) {
   switch( exposure ) {
     case Tsl2561::EXP_14:  delay(16);  break;
@@ -76,7 +78,7 @@ void waitNext( Tsl2561::exposure_t exposure ) {
   }
 }
 
-// wait for next sample, read luminosity and adjust sensitivity, if needed and possible
+// Wait for next sample, read luminosity and adjust sensitivity, if needed and possible
 bool autoGain( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uint16_t &full, uint16_t &ir ) {
 
   static const struct {
@@ -135,6 +137,7 @@ bool autoGain( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uint16_t
   }
 }
 
+// Measurement is up to 20% too high for temperatures above 25°C. Compensate for that.
 bool compensateTemperature( int16_t centiCelsius, uint32_t &full, uint32_t &ir ) {
   // assume linear gradient 0% at 25°C to +20% at 70°C
   if( centiCelsius >= -3000 && centiCelsius <= 7000 ) {
@@ -146,6 +149,7 @@ bool compensateTemperature( int16_t centiCelsius, uint32_t &full, uint32_t &ir )
   return false;
 }
 
+// Calculate lux from raw luminosity values
 bool milliLux( uint32_t full, uint32_t ir, uint32_t &mLux, bool csType ) {
   if( !full ) {
     mLux = 0;
@@ -180,7 +184,7 @@ bool milliLux( uint32_t full, uint32_t ir, uint32_t &mLux, bool csType ) {
       mLux = 0;
       return false;
     }
-    mLux /= 400 * 16 / 194; // 33 = counts/lux (cpl)
+    mLux /= 400 * 16 / 193; // 33 = counts/lux (cpl)
   }
 
   return true;
