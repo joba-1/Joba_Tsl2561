@@ -141,8 +141,8 @@ bool autoGain( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uint16_t
 bool compensateTemperature( int16_t centiCelsius, uint32_t &full, uint32_t &ir ) {
   // assume linear gradient 0% at 25°C to +20% at 70°C
   if( centiCelsius >= -3000 && centiCelsius <= 7000 ) {
-    full -= (full * (centiCelsius - 2500) * 20) / (100 * (7000 - 2500));
-    ir   -= (ir   * (centiCelsius - 2500) * 20) / (100 * (7000 - 2500));
+    full -= (full * (centiCelsius - 2500)) / (5 * (7000 - 2500));
+    ir   -= (ir   * (centiCelsius - 2500)) / (5 * (7000 - 2500));
     return true;
   }
 
