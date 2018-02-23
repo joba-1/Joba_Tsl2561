@@ -2,3 +2,7 @@
 .piolibdeps
 .clang_complete
 .gcc-flags.json
+examples/*/platformio.ini
+examples/*/lib
+examples/*/.gitignore
+examples/*/.travis.yml
