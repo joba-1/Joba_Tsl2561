@@ -39,22 +39,22 @@ bool normalizedLuminosity( bool gain, Tsl2561::exposure_t exposure, uint32_t &fu
 
     switch( exposure ) {
       case Tsl2561::EXP_14:
-        full = (scaledFull >=  5047/4*3) ? ~0 : ((full + 5) * 322) / 11;
-        ir   = (scaledIr   >=  5047/4*3) ? ~0 : ((ir   + 5) * 322) / 11;
+        full = (scaledFull >=  5047/4*3) ? 0xffffffff : ((full + 5) * 322) / 11;
+        ir   = (scaledIr   >=  5047/4*3) ? 0xffffffff : ((ir   + 5) * 322) / 11;
         break;
       case Tsl2561::EXP_101:
-        full = (scaledFull >= 37177/4*3) ? ~0 : ((full + 40) * 322) / 81;
-        ir   = (scaledIr   >= 37177/4*3) ? ~0 : ((ir   + 40) * 322) / 81;
+        full = (scaledFull >= 37177/4*3) ? 0xffffffff : ((full + 40) * 322) / 81;
+        ir   = (scaledIr   >= 37177/4*3) ? 0xffffffff : ((ir   + 40) * 322) / 81;
         break;
       case Tsl2561::EXP_402:
-        if( scaledFull >= 65535/4*3 ) full = ~0;
-        if( scaledIr   >= 65535/4*3 ) ir   = ~0;
+        if( scaledFull >= 65535/4*3 ) full = 0xffffffff;
+        if( scaledIr   >= 65535/4*3 ) ir   = 0xffffffff;
         break;
       default:
         return false;
     }
 
-    return full != ~0U && ir != ~0U;
+    return full != 0xffffffff && ir != 0xffffffff;
   }
 
   return false;
@@ -72,8 +72,8 @@ uint16_t getLimit( Tsl2561::exposure_t exposure ) {
 // Wait for one measurement interval plus some empirically tested extra millis
 void waitNext( Tsl2561::exposure_t exposure ) {
   switch( exposure ) {
-    case Tsl2561::EXP_14:  delay(16);  break;
-    case Tsl2561::EXP_101: delay(103); break;
+    case Tsl2561::EXP_14:  delay(18);  break;
+    case Tsl2561::EXP_101: delay(107); break;
     default:               delay(408); break;
   }
 }
@@ -95,7 +95,7 @@ bool autoGain( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uint16_t
 
   // get current sensitivity
   if( !tsl.getSensitivity(gain, exposure) ) {
-    return false;
+    return false; // I2C error
   }
 
   // find index of current sensitivity
@@ -111,11 +111,13 @@ bool autoGain( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uint16_t
   }
 
   // in a loop wait for next sample, get values and adjust sensitivity if needed
+  uint8_t retryOnSaturated = 10;
+
   while( true ) {
     waitNext(exposure);
 
     if( !tsl.fullLuminosity(full) || !tsl.irLuminosity(ir) ) {
-      return false;
+      return false; // I2C error
     }
 
     uint16_t limit = getLimit(exposure);
@@ -126,13 +128,15 @@ bool autoGain( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uint16_t
     if( (full < 1000 && ++curr < sizeof(sensitivity)/sizeof(sensitivity[0]))
      || (full > limit && curr-- > 0) ) {
       if( !tsl.setSensitivity(sensitivity[curr].gain, sensitivity[curr].exposure) ) {
-        return false;
+        return false; // I2C error
       }
       gain = sensitivity[curr].gain;
       exposure = sensitivity[curr].exposure;
     }
     else {
-      return true; // saturated, but best we can do
+      if( ++curr > 0 && retryOnSaturated-- == 0 ) {
+        return true; // saturated, but best we can do
+      }
     }
   }
 }
