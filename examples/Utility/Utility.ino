@@ -74,14 +74,14 @@ void loop() {
 
           if( Tsl2561Util::normalizedLuminosity(gain, exposure, full = scaledFull, ir = scaledIr) ) {
             if( Tsl2561Util::milliLux(full, ir, milliLux, Tsl2561::packageCS(id)) ) {
-              Serial.print(format(", full: %5u, ir: %5u, lux: %5u.%03u\n", full, ir, milliLux/1000, milliLux%1000));
+              Serial.print(format(", full: %5lu, ir: %5lu, lux: %5lu.%03lu\n", (unsigned long)full, (unsigned long)ir, (unsigned long)milliLux/1000, (unsigned long)milliLux%1000));
             }
             else {
-              Serial.print(format(", full: %5u, ir: %5u: Tsl2561Util::milliLux() error\n", full, ir));
+              Serial.print(format(", full: %5lu, ir: %5lu: Tsl2561Util::milliLux() error\n", (unsigned long)full, (unsigned long)ir));
             }
           }
           else {
-            Serial.print(format(", full: %5u, ir: %5u: Tsl2561Util::normalizedLuminosity() error\n", full, ir));
+            Serial.print(format(", full: %5lu, ir: %5lu: Tsl2561Util::normalizedLuminosity() error\n", (unsigned long)full, (unsigned long)ir));
           }
 
           Tsl.off();

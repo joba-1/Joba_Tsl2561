@@ -51,7 +51,7 @@ void showError( Tsl2561 &tsl ) {
 void testSensitivity( Tsl2561 &tsl, bool newGain, Tsl2561::exposure_t newExp ) {
   if( tsl.on() ) {
     uint32_t start = millis();
-    Serial.print(format("Chip powered on at %u\n", start));
+    Serial.print(format("Chip powered on at %lu\n", (unsigned long)start));
 
     bool chipGain;
     Tsl2561::exposure_t chipExp;
@@ -80,6 +80,7 @@ void testSensitivity( Tsl2561 &tsl, bool newGain, Tsl2561::exposure_t newExp ) {
 
     if( check ) {
       uint16_t ir, full = 0;
+
       while( !full && millis() - start < 1000 ) {
         if( !tsl.fullLuminosity(full) ) {
           Serial.print("Check full luminosity failed. ");
@@ -100,7 +101,7 @@ void testSensitivity( Tsl2561 &tsl, bool newGain, Tsl2561::exposure_t newExp ) {
         Serial.println("No luminosity reading after 1s. Too dark?");
       }
       else {
-        Serial.print(format("Got luminosity after %d ms. Full spectrum is %d and IR only is %d\n", millis() - start, full, ir));
+        Serial.print(format("Got luminosity after %lu ms. Full spectrum is %u and IR only is %u\n", (unsigned long)millis() - start, full, ir));
       }
     }
 
