@@ -40,9 +40,11 @@ namespace Tsl2561Util {
   // adjust luminosity according to sensor temperature (max +/-20% from 25°C)
   bool compensateTemperature( int16_t centiCelsius, uint32_t &full, uint32_t &ir );
 
+  // helper function to round after significant digits (~4 digits for Tsl2561)
+  uint32_t significance( const uint32_t value, const uint8_t digits );
+
   // calculate lux from normalized (and optionally temperature adjusted) luminosity
   bool milliLux( uint32_t full, uint32_t ir, uint32_t &milliLux, bool csType = false );
-
 };
 
 #endif
