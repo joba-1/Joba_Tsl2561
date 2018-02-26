@@ -154,17 +154,23 @@ bool compensateTemperature( int16_t centiCelsius, uint32_t &full, uint32_t &ir )
 }
 
 // Round num after valid digits
-uint32_t significance( const uint32_t num, const uint8_t digits ) {
+uint32_t significance( uint32_t num, uint8_t digits ) {
+  uint8_t len = 1;
+  uint32_t n = num;
+  while( n /= 10 ) {
+    len++;
+  }
+
   uint32_t e10 = 1;
-  uint8_t len = snprintf(0, 0, "%lu", (unsigned long)num); // integer log10 :)
   while( len-- > digits ) {
     e10 *= 10;
   }
+
   return ((num + e10 / 2) / e10) * e10;
 }
 
 // Calculate lux from raw luminosity values
-bool milliLux( uint32_t full, uint32_t ir, uint32_t &mLux, bool csType ) {
+bool milliLux( uint32_t full, uint32_t ir, uint32_t &mLux, bool csType, uint8_t digits ) {
   if( !full ) {
     mLux = 0;
     return true;
@@ -201,7 +207,7 @@ bool milliLux( uint32_t full, uint32_t ir, uint32_t &mLux, bool csType ) {
     mLux /= 400 * 16 / 193; // 33 = counts/lux (cpl)
   }
 
-  mLux = significance(mLux, 4); // only the first 4 digits seem to make sense.
+  mLux = significance(mLux, digits); // only the first 4 digits seem to make sense.
 
   return true;
 }
