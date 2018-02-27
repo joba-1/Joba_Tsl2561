@@ -53,7 +53,7 @@ void loop() {
 
   if( Tsl2561Util::autoGain(Tsl, gain, exposure, scaledFull, scaledIr) ) {
     if( Tsl2561Util::normalizedLuminosity(gain, exposure, full = scaledFull, ir = scaledIr) ) {
-      if( Tsl2561Util::milliLux(full, ir, milliLux, Tsl2561::packageCS(id)) ) {
+      if( Tsl2561Util::milliLux(full, ir, milliLux, Tsl2561::packageCS(id), 5) ) {
         Serial.print(format("Tsl2561 addr: 0x%02x, id: 0x%02x, sfull: %5u, sir: %5u, full: %5lu, ir: %5lu, gain: %d, exp: %d, lux: %5lu.%03lu\n",
           Tsl.address(), id, scaledFull, scaledIr, (unsigned long)full, (unsigned long)ir, gain, exposure, (unsigned long)milliLux/1000, (unsigned long)milliLux%1000));
       }
