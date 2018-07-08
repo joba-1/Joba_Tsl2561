@@ -24,6 +24,14 @@ This file is part of the Joba_Tsl2561 Library.
 
 namespace Tsl2561Util {
 
+  // Some chips may need higher values.
+  // Tweak here if autogain does not return valid results.
+  typedef enum {
+    DELAY_EXP_14  = 20,  // Max. delay in ms after
+    DELAY_EXP_101 = 110, // starting a measurement until
+    DELAY_EXP_402 = 430  // the first values arrive.
+  } delay_t;
+
   // delay until next sample is available
   void waitNext( Tsl2561::exposure_t exposure );
 
