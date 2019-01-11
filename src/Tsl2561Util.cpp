@@ -93,6 +93,8 @@ bool autoGain( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uint16_t
     { true,  Tsl2561::EXP_402 }  // max
   };
 
+  // Serial.printf("autoGain start: gain=%u, expo=%u\n", gain, exposure);
+
   // get current sensitivity
   if( !tsl.getSensitivity(gain, exposure) ) {
     return false; // I2C error
@@ -110,9 +112,10 @@ bool autoGain( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uint16_t
     return false; // should not happen...
   }
 
-  // in a loop wait for next sample, get values and adjust sensitivity if needed
+  // sometimes sensor reports high brightness although it is darker.
   uint8_t retryOnSaturated = 10;
 
+  // in a loop wait for next sample, get values and adjust sensitivity if needed
   while( true ) {
     waitNext(exposure);
 
@@ -122,11 +125,14 @@ bool autoGain( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uint16_t
 
     uint16_t limit = getLimit(exposure);
     if( full >= 1000 && full <= limit ) {
-      return true; // new value within limits
+      // Serial.printf("autoGain normal full=%u, limits=1000-%u, curr=%u\n", full, limit, curr);
+      return true; // new value within limits of good accuracy
     }
 
+    // adjust sensitivity, if possible
     if( (full < 1000 && ++curr < sizeof(sensitivity)/sizeof(sensitivity[0]))
      || (full > limit && curr-- > 0) ) {
+      // Serial.printf("autoGain adjust full=%u, limits=1000-%u, curr=%u\n", full, limit, curr);
       if( !tsl.setSensitivity(sensitivity[curr].gain, sensitivity[curr].exposure) ) {
         return false; // I2C error
       }
@@ -134,7 +140,10 @@ bool autoGain( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uint16_t
       exposure = sensitivity[curr].exposure;
     }
     else {
-      if( ++curr > 0 && retryOnSaturated-- == 0 ) {
+      // Serial.printf("autoGain limit full=%u, limits=1000-%u, curr=%u, retry=%u\n", full, limit, curr, retryOnSaturated);
+      // sensitivity already is at minimum or maximum
+      if( ++curr > 0 || retryOnSaturated-- == 0 ) {
+        // dark, or repeatedly confirmed high brightness
         return true; // saturated, but best we can do
       }
     }
