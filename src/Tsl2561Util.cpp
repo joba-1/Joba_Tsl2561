@@ -72,9 +72,9 @@ uint16_t getLimit( Tsl2561::exposure_t exposure ) {
 // Wait for one measurement interval plus some empirically tested extra millis
 void waitNext( Tsl2561::exposure_t exposure ) {
   switch( exposure ) {
-    case Tsl2561::EXP_14:  delay(18);  break;
-    case Tsl2561::EXP_101: delay(107); break;
-    default:               delay(408); break;
+    case Tsl2561::EXP_14:  delay(Tsl2561Util::DELAY_EXP_14);  break;
+    case Tsl2561::EXP_101: delay(Tsl2561Util::DELAY_EXP_101); break;
+    default:               delay(Tsl2561Util::DELAY_EXP_402); break;
   }
 }
 
