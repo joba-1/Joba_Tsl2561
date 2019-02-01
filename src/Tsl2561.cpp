@@ -19,16 +19,20 @@ This file is part of the Joba_Tsl2561 Library.
 
 #include "Tsl2561.h"
 
-Tsl2561::Tsl2561( TwoWire &wire ) : _addr(ADDR_NONE), _wire(wire), _status(ERR_OK) {
+Tsl2561::Tsl2561( TwoWire &wire ) : _addr(ADDR_NONE), _wire(wire), _status(ERR_GONE) {
 }
 
 bool Tsl2561::available() {
+  if( _addr == ADDR_NONE ) {
+    return false;
+  }
   _wire.beginTransmission(_addr);
   return (_status = static_cast<status_t>(_wire.endTransmission())) == ERR_OK;
 }
 
 bool Tsl2561::begin( address_t addr ) {
   _addr = addr;
+  _status = ERR_GONE;
   return available();
 }
 
@@ -46,6 +50,9 @@ bool Tsl2561::begin() {
 }
 
 bool Tsl2561::readByte( register_t reg, uint8_t &val ) {
+  if( _addr == ADDR_NONE ) {
+    return false;
+  }
   _wire.beginTransmission(_addr);
   _wire.write(reg | CONTROL_CMD);
   if( (_status = static_cast<status_t>(_wire.endTransmission(false))) == ERR_OK ) {
@@ -60,6 +67,9 @@ bool Tsl2561::readByte( register_t reg, uint8_t &val ) {
 }
 
 bool Tsl2561::readWord( register_t reg, uint16_t &val ) {
+  if( _addr == ADDR_NONE ) {
+    return false;
+  }
   _wire.beginTransmission(_addr);
   _wire.write(reg | CONTROL_CMD);
   if( (_status = static_cast<status_t>(_wire.endTransmission(false))) == ERR_OK ) {
@@ -75,6 +85,9 @@ bool Tsl2561::readWord( register_t reg, uint16_t &val ) {
 }
 
 bool Tsl2561::writeByte( register_t reg, uint8_t val ) {
+  if( _addr == ADDR_NONE ) {
+    return false;
+  }
   _wire.beginTransmission(_addr);
   _wire.write(reg | CONTROL_CMD);
   _wire.write(val);
