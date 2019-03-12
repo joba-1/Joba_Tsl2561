@@ -14,7 +14,7 @@ http://ams.com/eng/content/view/download/181895
 To use the library, just place the folder in your projects lib folder.
 For usage, see the examples folder.
 
-The library has 3 classes:
+The library has class Tsl2561 and namespace Tsl2561Util:
 Tsl2561     All register access as described in the datasheet, except for interrupts
 Tsl2561Util Convenience functions like lux calculation or automatic gain
 Tsl2561Int  TODO, Interrupt related stuff (not needed if int pin unconnected)
