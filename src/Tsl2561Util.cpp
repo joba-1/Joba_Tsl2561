@@ -1,5 +1,5 @@
 /*
-Copyright: Joachim Banzhaf, 2018
+Copyright: Joachim Banzhaf, 2019
 
 This file is part of the Joba_Tsl2561 Library.
 
@@ -81,7 +81,7 @@ uint16_t getDelay( Tsl2561::exposure_t exposure ) {
 
 // Wait for one exposure delay
 void waitNext( Tsl2561::exposure_t exposure ) {
-  delay(getDelay(exposure);
+  delay(getDelay(exposure));
 }
 
 // If according to given gain, exposure and setSensMs a sample is not yet available, return true and luminosity = 0
@@ -104,10 +104,10 @@ bool autoGainCheck( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uin
     { true,  Tsl2561::EXP_402 }  // max
   };
 
-  // Serial.printf("autoGain start: gain=%u, expo=%u\n", gain, exposure);
+  Serial.printf("autoGainCheck(gain=%u, expo=%u, full=%u, ir=%u, ms=%04x, now=%04x, retry=%u\n", gain, exposure, full, ir, setSensMs, (uint16_t)(millis() & 0xffff), retryOnSaturated);
 
   // first measurement -> get gain and exposure
-  if( setSenseMs == 0 ) {
+  if( setSensMs == 0 ) {
     if( (setSensMs = millis() & 0xffff) == 0 ) setSensMs = 0xffff;
 
     // get current sensitivity
@@ -144,6 +144,7 @@ bool autoGainCheck( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uin
   uint16_t limit = getLimit(exposure);
   if( full >= 1000 && full <= limit ) {
     // Serial.printf("autoGain normal full=%u, limits=1000-%u, curr=%u\n", full, limit, curr);
+    retryOnSaturated = 0;
     return true; // new value within limits of good accuracy
   }
 
@@ -174,11 +175,11 @@ bool autoGainCheck( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uin
 
 // Repeat measurements until either an error occurs or retry count reached 0 or valid values available
 bool autoGain( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uint16_t &full, uint16_t &ir ) {
-  uint16_t setSensMs = millis() & 0xffff;
-  uint8_t retryOnSaturated = 10;
+  uint16_t ms = 0;
+  uint8_t retry = 10;
   bool result;
 
-  while( (result = autoGainCheck(tsl, gain, exposure, full, ir, setSensMs, retryOnSaturated)) && ((!full && !ir) || retryOnSaturated) ) {
+  while( (result = autoGainCheck(tsl, gain, exposure, full, ir, ms, retry)) && ((!full && !ir) || retry) ) {
     waitNext(exposure);
   }
 
