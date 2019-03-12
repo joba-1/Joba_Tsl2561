@@ -70,17 +70,27 @@ uint16_t getLimit( Tsl2561::exposure_t exposure ) {
   }
 }
 
-// Wait for one measurement interval plus some empirically tested extra millis
-void waitNext( Tsl2561::exposure_t exposure ) {
+// One measurement interval for given exposure plus some empirically tested extra millis
+uint16_t getDelay( Tsl2561::exposure_t exposure ) {
   switch( exposure ) {
-    case Tsl2561::EXP_14:  delay(Tsl2561Util::DELAY_EXP_14);  break;
-    case Tsl2561::EXP_101: delay(Tsl2561Util::DELAY_EXP_101); break;
-    default:               delay(Tsl2561Util::DELAY_EXP_402); break;
+    case Tsl2561::EXP_14:  return Tsl2561Util::DELAY_EXP_14;  break;
+    case Tsl2561::EXP_101: return Tsl2561Util::DELAY_EXP_101; break;
+    default:               return Tsl2561Util::DELAY_EXP_402; break;
   }
 }
 
-// Wait for next sample, read luminosity and adjust sensitivity, if needed and possible
-bool autoGain( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uint16_t &full, uint16_t &ir ) {
+// Wait for one exposure delay
+void waitNext( Tsl2561::exposure_t exposure ) {
+  delay(getDelay(exposure);
+}
+
+// If according to given gain, exposure and setSensMs a sample is not yet available, return true and luminosity = 0
+// If a sample is available and no need to adjust sensitivity, return true, luminosity and new setSensMs
+// If it is too bright, decrease retryOnSaturated. Stop retrying if retry counted down to 0
+// Else (i.e. setSensMs == 0) this is the first check and we just started sampling
+// setSensMs is the lower 16 bit of millis() when last measurement started, e.g. at tsl.on() or tsl.setSensitivity()
+// If it is != 0, then gain and exposure are assumed to have valid values, e.g. from previous tsl.get/setSensitivity()
+bool autoGainCheck( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uint16_t &full, uint16_t &ir, uint16_t &setSensMs, uint8_t &retryOnSaturated ) {
 
   static const struct {
     bool                gain;
@@ -96,9 +106,14 @@ bool autoGain( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uint16_t
 
   // Serial.printf("autoGain start: gain=%u, expo=%u\n", gain, exposure);
 
-  // get current sensitivity
-  if( !tsl.getSensitivity(gain, exposure) ) {
-    return false; // I2C error
+  // first measurement -> get gain and exposure
+  if( setSenseMs == 0 ) {
+    if( (setSensMs = millis() & 0xffff) == 0 ) setSensMs = 0xffff;
+
+    // get current sensitivity
+    if( !tsl.getSensitivity(gain, exposure) ) {
+      return false; // I2C error
+    }
   }
 
   // find index of current sensitivity
@@ -110,45 +125,64 @@ bool autoGain( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uint16_t
     curr++;
   }
   if( curr == sizeof(sensitivity)/sizeof(sensitivity[0]) ) {
-    return false; // should not happen...
+    return false; // invalid gain/exposure - should not happen...
   }
 
-  // sometimes sensor reports high brightness although it is darker.
-  uint8_t retryOnSaturated = 10;
+  // return (to wait for next sample), or get values and adjust sensitivity if needed
+  if( (millis() & 0xffff) - setSensMs < getDelay(exposure) ) {
+    full = ir = 0; // indicates no valid values, yet
+    return true;
+  }
+  else {
+    setSensMs = millis() & 0xffff;
+  }
 
-  // in a loop wait for next sample, get values and adjust sensitivity if needed
-  while( true ) {
-    waitNext(exposure);
+  if( !tsl.fullLuminosity(full) || !tsl.irLuminosity(ir) ) {
+    return false; // I2C error
+  }
 
-    if( !tsl.fullLuminosity(full) || !tsl.irLuminosity(ir) ) {
+  uint16_t limit = getLimit(exposure);
+  if( full >= 1000 && full <= limit ) {
+    // Serial.printf("autoGain normal full=%u, limits=1000-%u, curr=%u\n", full, limit, curr);
+    return true; // new value within limits of good accuracy
+  }
+
+  // adjust sensitivity, if possible
+  if( (full < 1000 && ++curr < sizeof(sensitivity)/sizeof(sensitivity[0]))
+   || (full > limit && curr-- > 0) ) {
+    // Serial.printf("autoGain adjust full=%u, limits=1000-%u, curr=%u\n", full, limit, curr);
+    if( !tsl.setSensitivity(sensitivity[curr].gain, sensitivity[curr].exposure) ) {
       return false; // I2C error
     }
-
-    uint16_t limit = getLimit(exposure);
-    if( full >= 1000 && full <= limit ) {
-      // Serial.printf("autoGain normal full=%u, limits=1000-%u, curr=%u\n", full, limit, curr);
-      return true; // new value within limits of good accuracy
-    }
-
-    // adjust sensitivity, if possible
-    if( (full < 1000 && ++curr < sizeof(sensitivity)/sizeof(sensitivity[0]))
-     || (full > limit && curr-- > 0) ) {
-      // Serial.printf("autoGain adjust full=%u, limits=1000-%u, curr=%u\n", full, limit, curr);
-      if( !tsl.setSensitivity(sensitivity[curr].gain, sensitivity[curr].exposure) ) {
-        return false; // I2C error
-      }
-      gain = sensitivity[curr].gain;
-      exposure = sensitivity[curr].exposure;
+    gain = sensitivity[curr].gain;
+    exposure = sensitivity[curr].exposure;
+    full = ir = 0;
+  }
+  else {
+    // sensitivity already is at minimum or maximum
+    if( ++curr > 0 ) {
+      retryOnSaturated = 0; // too dark, can't do better, so use what we have
     }
     else {
-      // sensitivity already is at minimum or maximum
-      if( ++curr > 0 || retryOnSaturated-- == 0 ) {
-        // Serial.printf("autoGain limit full=%u, ir=%u, limits=1000-%u, curr=%u, retry=%u\n", full, ir, limit, curr, retryOnSaturated);
-        // dark, or repeatedly confirmed high brightness
-        return true; // saturated, but best we can do
-      }
+      retryOnSaturated--; // too bright, might be sensor glitch, so retry
+      // Serial.printf("autoGain limit full=%u, ir=%u, limits=1000-%u, curr=%u, retry=%u\n", full, ir, limit, curr, retryOnSaturated);
     }
   }
+
+  return true;
+}
+
+// Repeat measurements until either an error occurs or retry count reached 0 or valid values available
+bool autoGain( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uint16_t &full, uint16_t &ir ) {
+  uint16_t setSensMs = millis() & 0xffff;
+  uint8_t retryOnSaturated = 10;
+  bool result;
+
+  while( (result = autoGainCheck(tsl, gain, exposure, full, ir, setSensMs, retryOnSaturated)) && ((!full && !ir) || retryOnSaturated) ) {
+    waitNext(exposure);
+  }
+
+  return result;
 }
 
 // Measurement is up to 20% too high for temperatures above 25°C. Compensate for that.
