@@ -158,7 +158,11 @@ void test( Tsl2561 &tsl ) {
 
 void setup() {
   Serial.begin(115200);
-  Wire.begin(TSL2561_SDA, TSL2561_SCL);
+  #if defined(TSL2561_SDA) && defined(TSL2561_SCL)
+    Wire.begin(TSL2561_SDA, TSL2561_SCL);
+  #else
+    Wire.begin();
+  #endif
   Serial.println("\nStarting Tsl2561 testing loop");
 }
 
