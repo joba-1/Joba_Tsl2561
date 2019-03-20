@@ -84,6 +84,12 @@ void waitNext( Tsl2561::exposure_t exposure ) {
   delay(getDelay(exposure));
 }
 
+// Debug async autogain
+void autoGainPrint( const char *label, uint16_t full, uint16_t ir, bool gain, Tsl2561::exposure_t exposure, uint16_t measured, uint8_t retries ) {
+  Serial.printf("autoGain %10s: full=%5u, ir=%5u, gain=%c, exposure=%u, now=%5u, prev=%5u, delay=%3u, retry=%2u\n",
+  label, full, ir, gain ? 'Y' : 'N', exposure, (uint16_t)(millis() & 0xffff), measured, getDelay(exposure), retries);
+}
+
 // If according to given gain, exposure and setSensMs a sample is not yet available, return true and luminosity = 0
 // If a sample is available and no need to adjust sensitivity, return true, luminosity and new setSensMs
 // If it is too bright, decrease retryOnSaturated. Stop retrying if retry counted down to 0
@@ -104,7 +110,7 @@ bool autoGainCheck( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uin
     { true,  Tsl2561::EXP_402 }  // max
   };
 
-  Serial.printf("autoGainCheck(gain=%u, expo=%u, full=%u, ir=%u, ms=%04x, now=%04x, retry=%u\n", gain, exposure, full, ir, setSensMs, (uint16_t)(millis() & 0xffff), retryOnSaturated);
+  autoGainPrint("startCheck", full, ir, gain, exposure, setSensMs, retryOnSaturated);
 
   // first measurement -> get gain and exposure
   if( setSensMs == 0 ) {
@@ -112,6 +118,7 @@ bool autoGainCheck( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uin
 
     // get current sensitivity
     if( !tsl.getSensitivity(gain, exposure) ) {
+      autoGainPrint("getSens", full, ir, gain, exposure, setSensMs, retryOnSaturated);
       return false; // I2C error
     }
   }
@@ -125,12 +132,14 @@ bool autoGainCheck( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uin
     curr++;
   }
   if( curr == sizeof(sensitivity)/sizeof(sensitivity[0]) ) {
+    autoGainPrint("currSens", full, ir, gain, exposure, setSensMs, retryOnSaturated);
     return false; // invalid gain/exposure - should not happen...
   }
 
   // return (to wait for next sample), or get values and adjust sensitivity if needed
   if( (millis() & 0xffff) - setSensMs < getDelay(exposure) ) {
     full = ir = 0; // indicates no valid values, yet
+    autoGainPrint("getDelay", full, ir, gain, exposure, setSensMs, retryOnSaturated);
     return true;
   }
   else {
@@ -138,21 +147,22 @@ bool autoGainCheck( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uin
   }
 
   if( !tsl.fullLuminosity(full) || !tsl.irLuminosity(ir) ) {
+    autoGainPrint("getLumi", full, ir, gain, exposure, setSensMs, retryOnSaturated);
     return false; // I2C error
   }
 
   uint16_t limit = getLimit(exposure);
   if( full >= 1000 && full <= limit ) {
-    // Serial.printf("autoGain normal full=%u, limits=1000-%u, curr=%u\n", full, limit, curr);
     retryOnSaturated = 0;
+    autoGainPrint("okLumi", full, ir, gain, exposure, setSensMs, retryOnSaturated);
     return true; // new value within limits of good accuracy
   }
 
   // adjust sensitivity, if possible
   if( (full < 1000 && ++curr < sizeof(sensitivity)/sizeof(sensitivity[0]))
    || (full > limit && curr-- > 0) ) {
-    // Serial.printf("autoGain adjust full=%u, limits=1000-%u, curr=%u\n", full, limit, curr);
     if( !tsl.setSensitivity(sensitivity[curr].gain, sensitivity[curr].exposure) ) {
+      autoGainPrint("setSens", full, ir, gain, exposure, setSensMs, retryOnSaturated);
       return false; // I2C error
     }
     gain = sensitivity[curr].gain;
@@ -166,10 +176,10 @@ bool autoGainCheck( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uin
     }
     else {
       retryOnSaturated--; // too bright, might be sensor glitch, so retry
-      // Serial.printf("autoGain limit full=%u, ir=%u, limits=1000-%u, curr=%u, retry=%u\n", full, ir, limit, curr, retryOnSaturated);
     }
   }
 
+  autoGainPrint("exitRetry", full, ir, gain, exposure, setSensMs, retryOnSaturated);
   return true;
 }
 
@@ -179,9 +189,13 @@ bool autoGain( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uint16_t
   uint8_t retry = 10;
   bool result;
 
+  Serial.println("Start Autogain");
+
   while( (result = autoGainCheck(tsl, gain, exposure, full, ir, ms, retry)) && ((!full && !ir) || retry) ) {
     waitNext(exposure);
   }
+
+  Serial.println("End Autogain");
 
   return result;
 }
