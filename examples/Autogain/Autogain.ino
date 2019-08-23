@@ -44,7 +44,7 @@ void setup() {
   #endif
   while( !Tsl.begin() )
     ; // wait until chip detected or wdt reset
-  Serial.println("\nStarting Tsl2561Util autogain loop");
+  Serial.println("\nStarting Tsl2561Util autogain loop compiled at " __TIMESTAMP__);
   Tsl.on();
   Tsl.id(id);
 }
