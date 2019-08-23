@@ -84,11 +84,15 @@ void waitNext( Tsl2561::exposure_t exposure ) {
   delay(getDelay(exposure));
 }
 
+#ifdef TSL2561UTIL_DEBUG
 // Debug async autogain
-void autoGainPrint( const char *label, uint16_t full, uint16_t ir, bool gain, Tsl2561::exposure_t exposure, uint16_t measured, uint8_t retries ) {
-  Serial.printf("autoGain %10s: full=%5u, ir=%5u, gain=%c, exposure=%u, now=%5u, prev=%5u, delay=%3u, retry=%2u\n",
-  label, full, ir, gain ? 'Y' : 'N', exposure, (uint16_t)(millis() & 0xffff), measured, getDelay(exposure), retries);
+void autoGainPrint( const char *label, uint16_t full, uint16_t ir, bool gain, Tsl2561::exposure_t exposure, uint8_t sensitivity, uint16_t measured, uint8_t retries ) {
+  Serial.printf("autoGain %10s: full=%5u, ir=%5u, gain=%c, exposure=%u, sense=%u, now=%5u, prev=%5u, delay=%3u, retry=%2u\n",
+  label, full, ir, gain ? 'Y' : 'N', exposure, sensitivity, (uint16_t)(millis() & 0xffff), measured, getDelay(exposure), retries);
 }
+#else
+#define autoGainPrint(...)
+#endif
 
 // If according to given gain, exposure and setSensMs a sample is not yet available, return true and luminosity = 0
 // If a sample is available and no need to adjust sensitivity, return true, luminosity and new setSensMs
@@ -109,8 +113,9 @@ bool autoGainCheck( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uin
     { true,  Tsl2561::EXP_101 },
     { true,  Tsl2561::EXP_402 }  // max
   };
+  static uint8_t curr = sizeof(sensitivity)/sizeof(sensitivity[0]); // start with invalid index
 
-  autoGainPrint("startCheck", full, ir, gain, exposure, setSensMs, retryOnSaturated);
+  autoGainPrint("startCheck", full, ir, gain, exposure, curr, setSensMs, retryOnSaturated);
 
   // first measurement -> get gain and exposure
   if( setSensMs == 0 ) {
@@ -118,28 +123,30 @@ bool autoGainCheck( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uin
 
     // get current sensitivity
     if( !tsl.getSensitivity(gain, exposure) ) {
-      autoGainPrint("getSens", full, ir, gain, exposure, setSensMs, retryOnSaturated);
+      autoGainPrint("!getSens!", full, ir, gain, exposure, curr, setSensMs, retryOnSaturated);
       return false; // I2C error
     }
   }
 
-  // find index of current sensitivity
-  uint8_t curr = 0;
-  while( curr < sizeof(sensitivity)/sizeof(sensitivity[0]) ) {
-    if( sensitivity[curr].gain == gain && sensitivity[curr].exposure == exposure ) {
-      break;
-    }
-    curr++;
-  }
+  // first call: find index of current sensitivity
   if( curr == sizeof(sensitivity)/sizeof(sensitivity[0]) ) {
-    autoGainPrint("currSens", full, ir, gain, exposure, setSensMs, retryOnSaturated);
-    return false; // invalid gain/exposure - should not happen...
+    curr = 0;
+    while( curr < sizeof(sensitivity)/sizeof(sensitivity[0]) ) {
+      if( sensitivity[curr].gain == gain && sensitivity[curr].exposure == exposure ) {
+        break;
+      }
+      curr++;
+    }
+    if( curr == sizeof(sensitivity)/sizeof(sensitivity[0]) ) {
+      autoGainPrint("!currSens!", full, ir, gain, exposure, curr, setSensMs, retryOnSaturated);
+      return false; // invalid gain/exposure - should not happen...
+    }
   }
 
   // return (to wait for next sample), or get values and adjust sensitivity if needed
   if( (millis() & 0xffff) - setSensMs < getDelay(exposure) ) {
     full = ir = 0; // indicates no valid values, yet
-    autoGainPrint("getDelay", full, ir, gain, exposure, setSensMs, retryOnSaturated);
+    autoGainPrint("waitMore", full, ir, gain, exposure, curr, setSensMs, retryOnSaturated);
     return true;
   }
   else {
@@ -147,14 +154,14 @@ bool autoGainCheck( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uin
   }
 
   if( !tsl.fullLuminosity(full) || !tsl.irLuminosity(ir) ) {
-    autoGainPrint("getLumi", full, ir, gain, exposure, setSensMs, retryOnSaturated);
+    autoGainPrint("!getLumi!", full, ir, gain, exposure, curr, setSensMs, retryOnSaturated);
     return false; // I2C error
   }
 
   uint16_t limit = getLimit(exposure);
   if( full >= 1000 && full <= limit ) {
     retryOnSaturated = 0;
-    autoGainPrint("okLumi", full, ir, gain, exposure, setSensMs, retryOnSaturated);
+    autoGainPrint("okLumi", full, ir, gain, exposure, curr, setSensMs, retryOnSaturated);
     return true; // new value within limits of good accuracy
   }
 
@@ -162,7 +169,7 @@ bool autoGainCheck( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uin
   if( (full < 1000 && ++curr < sizeof(sensitivity)/sizeof(sensitivity[0]))
    || (full > limit && curr-- > 0) ) {
     if( !tsl.setSensitivity(sensitivity[curr].gain, sensitivity[curr].exposure) ) {
-      autoGainPrint("setSens", full, ir, gain, exposure, setSensMs, retryOnSaturated);
+      autoGainPrint("!setSens!", full, ir, gain, exposure, curr, setSensMs, retryOnSaturated);
       return false; // I2C error
     }
     gain = sensitivity[curr].gain;
@@ -170,16 +177,18 @@ bool autoGainCheck( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uin
     full = ir = 0;
   }
   else {
-    // sensitivity already is at minimum or maximum
-    if( ++curr > 0 ) {
+    // value beyond accurate range, but curr sensitivity already is beyond minimum or maximum
+    if( curr == sizeof(sensitivity)/sizeof(sensitivity[0]) ) {
       retryOnSaturated = 0; // too dark, can't do better, so use what we have
+      curr--;
     }
     else {
       retryOnSaturated--; // too bright, might be sensor glitch, so retry
+      curr++;
     }
   }
 
-  autoGainPrint("exitRetry", full, ir, gain, exposure, setSensMs, retryOnSaturated);
+  autoGainPrint("exitRetry", full, ir, gain, exposure, curr, setSensMs, retryOnSaturated);
   return true;
 }
 
@@ -189,13 +198,17 @@ bool autoGain( Tsl2561 &tsl, bool &gain, Tsl2561::exposure_t &exposure, uint16_t
   uint8_t retry = 10;
   bool result;
 
-  Serial.println("Start Autogain");
+#ifdef TSL2561UTIL_DEBUG
+  Serial.println("\nStart Autogain compiled at " __TIMESTAMP__);
+#endif
 
   while( (result = autoGainCheck(tsl, gain, exposure, full, ir, ms, retry)) && ((!full && !ir) || retry) ) {
     waitNext(exposure);
   }
 
+#ifdef TSL2561UTIL_DEBUG
   Serial.println("End Autogain");
+#endif
 
   return result;
 }
