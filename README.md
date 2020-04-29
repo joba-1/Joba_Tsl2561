@@ -25,3 +25,5 @@ Tsl2561Int  TODO, Interrupt related stuff (not needed if int pin is not connecte
 
 ## Compatibility
 Tested with boards Nano, ESP8266 and ESP32 iArduino IDE and PlatformIO
+
+Joachim Banzhaf
